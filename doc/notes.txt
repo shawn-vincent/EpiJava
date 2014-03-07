@@ -1,0 +1,160 @@
+
+
+Java Interpreter - General Project Notes
+
+
+* Goals
+
+Basically, I feel I am in a good position to build a high quality interpreter for the Java language.
+
+* What lives in this space right now?
+
+There are two such projects currently in existence:
+
+1. Koala's DynamicJava
+
+2. BeanShell
+
+The former seems to be abandonware, although it was quite a nice implementation when it was still being maintained.
+
+BeanShell is (semi-)actively maintained and basically occupies the niche of 'interpreted java' right now.  Unfortunately, it's garbage internally, and fails to meet certain important properties (modern language support like 1.5, debugger support, etc).
+
+* Does the world need this?
+
+Frankly, no.  If I do it, it will be for the joy of doing it.
+
+In order to be an actively useful product, I would have to build something that was more useful than BeanShell, and actively maintain it.  This would probably require more free time than I have available.
+
+The most likely goal of such a project is to build it once, release it, and then sporadically do stuff to it.  In terms of user acceptance, this may not be a reasonable project to use.
+
+This may change, but as of now, it seems the most likely goal.
+
+Should I do it anyway?  Yes - if only for the purpose of thinking about and solving interesting programming problems, honing my own skill and thought processes, and generally having fun with it.
+
+It is very possible that such a project would gain legs and users - anybody who wants a quality Java interpreter (of which I'm sure there are some) would do well by this implementation.
+
+
+* Scope
+
+The scope of this project is as follows:
+
+** Phase I - Critical Pieces
+
+*** parser for Java (probably just steal the nice Antlr3 grammar)
+
+*** nice expression parse tree, with pleasant builder interface
+
+*** reference binder/typechecker
+
+*** interpreter
+
+*** low quality pretty printer
+
+*** Language subset
+**** Simple expressions (for, if, arithmetic, etc)
+**** Class + method declarations
+**** No Generics
+**** Some extensions
+
+*** Libraries
+**** Visitor pattern - 1st parameter multimethod implementation (efficient)
+**** High quality error reporting and locus information
+**** SourceLoader interface (primitive)
+**** Consider custom Classloader & DynamicProxy/CGLIB support
+**** Type system (operations, etc.  Work on top of Reflection & interpreter)
+**** Unification library over Java data structures (@AstField annotation)
+
+
+** Phase II - Important optional pieces
+
+*** Java language extensions
+
+*** extensibility in some form
+
+*** high quality pretty printer, with hooks for generating code and/or HTML formatting the output
+
+
+** Phase III - Nice to have pieces
+
+*** debug hooks into interpreter
+
+*** possibly a debugger (although this may be out of scope at first.  Perhaps a command line debugger like jdb?)
+
+*** long term, possibly a byte code generator as well (so we could actually have a compiler)
+
+*** consider doing something interesting with SMAP files.
+
+* Extensibility
+
+#7 is challenging.  BeanShell got one thing right: in interactive scripts, you often want convenience things like:
+
+- softer typing
+
+- expressions outside of methods
+
+- literal collections
+
+- other things
+
+These things are extensions to the Java language.  I would like a design for this system to include the provision for adding and removing additional language features like these.
+
+* Uses
+
+There are a few interesting uses for this project in the real world, that should be dealt with explicitly:
+
+- application hooks (this means that the interface to call out to scripts should be SIMPLE, clean, nice, have good error handling, and all that jazz)
+
+- interactive shells (this means that the extensibility should be enough that Java doesn't destroy the utility of it by its verbosity)
+
+- using java as a configuration mechanism (similar to interactive shells -- I would like to eliminate ANT scripts, for example, in favor of a Java source file and some nice libraries) 
+
+- Java code generation (build expression trees, generate source code or bytecodes)
+
+* Workload
+
+- this project is pretty big.  Given my free time availability, it'll likely take a long time.  To that end, it needs to be chopped up into stages.  I'll go rework the scope accordingly.
+
+
+
+
+
+
+* More notes
+
+EpiJava Notes
+
+
+- clean up grammar stuff
+- error handling
+- more aggressive careful stuff
+- 2 way functors
+
+- LocusAware
+- SourceTokensAware
+- plus magic variables
+
+- UserGrammar
+- naming grammar productions (for error handling)
+- composing grammars
+- clean up ObjectStream.
+- unify ref and label
+- efficiency
+- packrat parsers
+- identity comparison sometimes
+- optimize multimethod for single method case
+- ~= 100% unit test code coverage
+
+- Prolog interpretation of rules - consider how they change (particularly for ref and label)
+
+- consider a scope for labels (probably a choice in an OR combinator)
+
+
+- ctrl-shift, lots of gems embed themselves around the page, click on them to get context menus (rich)
+
+- backend for PHP, Perl, something allowed on regular hosting servers
+
+- shell - concept of current Object, rather than current directory.
+- consider Subjects (from Hopscotch) to make a directory view of a file, versus a raw view.
+- 'this' would be available in shell, which would make things fun
+- URLs & resources - cd to a web page, ls() would list the links off the page, view() would open a view, inspect() would inline an inspector
+-

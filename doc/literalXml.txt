@@ -1,0 +1,80 @@
+* Literal XML
+
+** Interesting idea
+
+XML syntax exactly equivalent to constructor syntax.
+
+    <Foo>{a, b, c}</Foo> === new Foo(a, b, c)
+
+Then, HTML elements would be like this:
+
+    public class p extends HtmlElement {
+      public p(Object... content) { ... }
+    }
+
+    <p>this is a paragraph containing a single String</p>
+    <p>{"this is also a paragraph containing a single String}</p>
+
+I'd like Text nodes to be java.lang.Strings (for simplicity)
+
+I'd like no parent nodes.  Just Say No.
+
+XML namespaces are trickier.  Maybe make a generic XML node supertype?  Something with a getNamespace()/setNamespace() in it.  It could be called implicitly.
+
+Attributes would just be content, and simply more 'new' expressions.
+
+Very simple, very Java.
+
+Accessing will be another matter.
+
+Mutability?  Probably mutable is better than nonmutable.  Much cheaper on large documents that you want to make changes to.  However, it's just constructor calling - so you can do the immutable thing if you want (modulo namespace)
+
+Different namespaces === different Java packages somehow?  That's trickier.
+
+Maybe just this?
+
+  // declare namespace and prefix
+  import com.epijava.xhtml @xmlns h="http://www.w3c.com/TR/xhtml1.0";
+
+  // declare namespace with default prefix.
+  import com.epijava.xhtml @xmlns "http://www.w3c.com/TR/xhtml1.0";
+
+Pretty simple.
+
+OTOH, this is kindof creepy, really.  com.epijava.xhtml should be declaring the namespace, not us.
+
+So maybe it should be like this:
+
+    @xmlns("http://www.w3c.com/TR/xhtml1.0")
+    class p { ... }
+
+    new p() // works with Java rules
+
+    <p xmlns="http://www.w3c.com/TR/xhtml1.0"> ... </p> // works
+
+    <p> ... </p> // is an error
+
+Or maybe we should ignore this altogether, and not support XML namespaces, except for I/O.  Literal stuff would just use imports of types, and maybe assertions that the XML namespaces line up.
+
+So for the last example, 
+
+    <p> ... </p> is fine (and default the namespace), but
+    <p xmlns="foo.bar"> ... </p> would be a 'wrong namespace' error.
+
+Or maybe xmlns declarations are ignored?
+
+So... what about dynamic XML?
+
+    class DynamicNode {
+    }
+
+    @dynamic <p> ... </p> would make a dynamic node instead?  Is there any point?  Maybe having literal syntax for dynamic nodes is boring, and it should just be library code that parses files instead.
+
+So yeah.  That's fine.
+
+
+This, combined with multimethods, I think would give a really sweet system.
+
+
+
+

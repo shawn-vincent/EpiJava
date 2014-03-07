@@ -1,0 +1,308 @@
+
+
+Java Language Extensions
+
+
+*Introduction
+
+A Java interpreter has several uses, many of which involve being able to quickly write concise programs for things -- the language you're scripting in has to compare favorably to custom languages for things like configuration and scripting.
+
+BeanShell gets this, and is one of the things that makes it popular.
+
+All of these things are optional, but in a scripting variant of Java they might be very useful.
+
+ADDITIONALLY, support all the new features of Java coming out soon (like closures and reified generic types, etc)
+
+*General
+
+**Controllability
+
+You NEED to be able to turn these features off.
+
+Whether they can be turned off independently is a question: I assume it's not necessary.
+
+**Transformation
+
+It would be nice to implement these as transformations into valid Java syntax trees.
+
+This way new ones can be written easily, and we don't have to write type checking for them, etc.
+
+It's also easier to validate that they don't 'break' the language.
+
+Note that some things (like multimethods) are hard to do this way.  But for the ones that work, we'd like that.
+
+Consider carefully the issue of pretty printing.  We would like to pretty print the original extended language tree, sugar and all.  We would also like to Java code generate the expanded version.
+
+Two options:
+
+   1. expand and keep a reference back to what was expanded FROM.  This is good anyway, for locus information, debugger support, etc.  You could change the pretty printer to choose to print unexpanded nodes if you like.
+
+   2. pretty print the unexpanded tree if you want that.
+
+
+
+*Soft Typing
+
+The type checker should be configurable to not give type errors in some circumstances.
+
+Ideally this would involve some sort of type inference
+
+**Duck typing
+
+The simplest form of soft typing would be "duck typing".
+
+If a method or field does not exist on an object, and duck typing is turned on, the call/reference is converted into a runtime dynamic call (that will throw a runtime error if it doesn't work).
+
+There are questions about whether this will be a dynamic lookup or a static lookup (based on the argument types at compile time or runtime).  This will interplay with the Multimethod arguments.
+
+
+*Lightweight Variable Declarations
+
+I don't really want to support auto-creation of variables.  Maybe a 'var' keyword or something is good?
+
+*Softening checked exception requirements?
+
+Basically optional: allow all checked exceptions to be dynamically wrapped?
+
+This is creepy.  Maybe an annotation to control it?
+
+*Literal Collections
+
+The fact that Java doesn't have literal collections is a shame in its own right.  A scripting language _must_.
+
+Current thoughts include:
+
+    List x = [1, 2, 3, 4];  // --- makes an ArrayList
+    Map y = ["a":1, "b":2, "c":3]; // --- makes a LinkedHashMap
+
+The compile time types of these entities is inferred as:
+
+    [v, ...]
+    ==>
+    ArrayList<? extends MGT(v, ...)>
+
+and
+
+    [k:v, ...]
+    ==>
+    LinkedHashMap<? extends MGT(k, ...), ? extends MGT(v, ...)>
+
+
+Explicit support for Set is probably not necessary: it comes up rarely enough, and:
+
+    new HashSet([1, 2, 3, 4])
+
+isn't that bad.
+
+This is, I believe the choices made by Groovy.
+
+More investigation should be done on other choices.
+
+
+*Ranges
+
+Mostly to support the nice slicing operations, we'd like to support this:
+
+    List<Integer> range = [1..10]; // --- makes a List of elements from s..e
+
+This range will be required to be of primitive type (or possibly one
+of selected range-able nonprimitive types, like Integer?)
+
+Consider ranges of Strings and Dates -- probably reject them.
+
+The List subtype constructed will be a runtime component of the library: probably a RangeList or something.  It will represent the endpoints, but not expand the list until iteration time.
+
+Length of this list will be calculated.
+
+The static type of this element will be inferred:
+
+   s..e
+   ==>
+   RangeList<MGT(s, e)>
+
+
+   class RangeList<T> implements List<T>, ListSlicer, StringSlicer {
+      public RangeList(T startAndEnd);
+      public RangeList(T start, T end);
+
+      public T getStart();
+      public T getEnd();
+
+      /**
+       * Note: only defined on RangeList<Integer>
+       */
+      public <U> List<U> slice(List<U> l);
+   }
+
+**Ranges in Literal Lists
+
+Groovy supports ranges in literal lists, like this:
+
+   [1, 2, 3, 5..10, 14]
+
+We should probably do this too.
+
+This may be as simple as expanding the list at construction time.  This, however, precludes using the same type for slice operators (below).
+
+It might be worth considering the alternative: that ANY range in a list makes it be a RangeList or some subtype... think harder here.  This alternative type may also be used as the type for the slice operator, below.
+
+MultiRangeList: defined as {RangeList*}.  Since n..n is the same as [n], we can simplify something like this:
+
+   [1, 2, 5..10]
+   ==>
+   [1..1, 2..2, 5..10]
+
+This way operations using this list can be simple.
+
+    class MultiRangeList<T> implements List<T>
+        implements ListSlicer, StringSlicer
+    {
+
+       public MultiRangeList(RangeList<T>... ranges);
+
+       ...
+       public List<RangeList> getRanges();
+       ...
+
+       /**
+        * Note: this operation only makes sense for MultiRangeList<Integer>
+        */
+       public <U> List<U> slice(List<U> l);
+    }
+
+
+*Array index extensions + Slicing
+
+We'd like to support this:
+
+    List l = ...;
+    l[14]; // same as l.get(14)
+    l[2..3]; // same as l.sublist(2, 3) - but see notes, below
+    l[14] = v; // same as l.set(14, v)
+
+    Map m = ...;
+    m[k]; // same as m.get(k)
+    m[k] = v; // same as m.put(k,v)
+    // ranges here?  it would mean multiple gets, maybe good for symmetry?
+
+    String s = ...;
+    s[2]; // same as s.charAt(2)
+    s[3..4]; // same as s.substring(3, 4) - but see notes, below
+
+The range stuff should:
+    - if the range is reversed (5..2), it should reverse the result.
+
+         s[5..2]
+         ==>
+         s.substring(2, 5).reverse()
+
+    - ranges should include multi range lists like so:
+         l[1, 3..4, 7]
+      and work out appropriately.
+
+This is similar to both Groovy and Python, as well as possibly other languages.
+    
+ISSUE: should m[k] return null or throw an exception if !m.containsKey(k)?  Probably return null for simplicity...
+
+Static typing for these operations probably needs to be done explicitly.
+
+ISSUE:  Some of these are syntactic sugar.  Do we want to transform these into pure java constructs early in the pipeline?  For some of the things, like Multi-range list sublists, we probably need library support:
+
+    l[1, 3..4, 7]
+    ==>
+    new MultiRangeList(new RangeList(1), new RangeList(3, 4), new RangeList(7)).slice(l)
+
+with
+
+    MultiRangeList implements ListSlicer
+
+    interface ListSlicer {
+        public <T> List<T> slice(List<T> l);
+    }
+
+
+
+    interface StringSlicer {
+        public String slice(String s);
+        public StringBuffer slice(StringBuffer s); // copies
+        public StringBuilder slice(StringBuilder s); // copies
+    }
+
+
+There is the possibility of a MapSlicer also.
+
+
+**StringBuffer, StringBuilder
+
+Probably the slice and index operations on Strings should work on these things also.
+
+StringSlicer should contain these operations.
+
+These operations should COPY the StringBuffer or StringBuilder rather than modifying in place.
+
+
+**NIO Support
+
+Look at the various NIO things and see if anything there qualifies (ByteBuffer or whatever?) for slicing and friends.  It would be nice if we could do something there.
+
+
+*Expressions/Statements outside of methods
+
+BeanShell does it, command line Java requires it.  A file or whatever, containing a list of expressions.
+
+Probably this top-level syntax should be INSTEAD of class definitions, or at the END of the class definitions.  For semicolon issues, coming up...
+
+We would like one grammar, with one entry point, for all purposes:
+
+   1. normal Java files
+
+   2. scripts containing a list of statements
+
+   3. parsing and evaluating stand-alone Java expressions
+
+This grammar would work:
+
+    [imports and packages]
+
+    [class declarations]
+
+    ( Statement (";" Statement)* (";")? )?
+
+    EOF
+
+Basically, at the end, semicolon seperated list of statements, with optional trailing semicolon.
+
+Requiring this to be at the end removes grammar complexity with a non-semicolon terminated statement followed by a class declaration.
+
+*Multimethods?
+
+I would LOVE to do this.  Consider carefully the implementation as Java code...
+
+Basically, you would annotate the method with a @Multi annotation.  This would change the language so that instead of static dispatch on the method, you would get dynamic dispatch.
+
+All variants of the method must be tagged @Multi.  A method with the most general type will be generated, and all the Multi variants will be renamed into their own namespace.
+
+Callers will be unaffected.
+
+Some runtime stuff to make this possible in generated code will be done: some static state on the class that gets a list of Methods
+
+*Reflection help
+
+Convenience ways to fetch Method and Field objects:
+
+  Person.class.Person() // Constructor
+  String.class.toString() // Method
+  Person.class.name // Field
+
+There's a proposal floating around that basically does this same thing.
+
+  http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4810162
+
+Ideally the reflection exceptions could be dealt with somewhat also.
+
+These would be transformed into:
+
+  ReflectUtil.getConstructor(...)
+
+and friends.
+

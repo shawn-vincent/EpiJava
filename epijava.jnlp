@@ -1,0 +1,37 @@
+<?xml version="1.1" encoding="UTF-8"?>
+<jnlp spec="1.0+" codebase="file:/Users/svincent/personal/software/EpiJava/">
+
+  <information>
+    <title>EpiJava</title>
+    <vendor>Shawn Vincent</vendor>
+    <homepage href="http://www.epijava.com/"/>
+    <description>The EpiJava software environment</description>
+
+    <icon href="chrome/pie-128.png"/>
+
+    <offline-allowed/>
+  </information>
+  
+  <offline-allowed/>
+
+  <security>
+    <all-permissions/>
+  </security>
+
+  <resources>
+    <j2se version="1.5+" />
+    <jar href="dist/epijava-0.1.jar"/>
+    <jar href="lib/jetty-continuation-7.0.0.M2.jar"/>
+    <jar href="lib/jetty-server-7.0.0.M2.jar"/>
+    <jar href="lib/jetty-http-7.0.0.M2.jar"/>
+    <jar href="lib/jetty-util-7.0.0.M2.jar"/>
+    <jar href="lib/jetty-io-7.0.0.M2.jar"/>
+    <jar href="lib/servlet-api-2.5.jar"/>
+    <jar href="lib/slf4j-api-1.5.8.jar"/>
+    <jar href="lib/slf4j-log4j12-1.5.8.jar"/>
+    <jar href="lib/log4j-1.2.15.jar"/>
+  </resources>
+  
+  <application-desc main-class="com.epijava.launch.EpiLaunch"/>
+  
+</jnlp>

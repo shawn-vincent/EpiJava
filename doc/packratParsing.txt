@@ -1,0 +1,180 @@
+/*
+  Analysis of code found in "Packrat Parsers Can Support Left
+  Recursion" by Alessandro Warth, James R. Douglass, Todd Millstein
+
+ */
+
+
+class Grammar {
+
+    /**
+     * Applies a rule.
+     *
+     * As far as I can tell, a Rule should be a grammar.
+     *
+     * This replaces the 'parse' method on all grammars with this one.
+     * Current parse method should be renamed to 'parseBody'.
+     **/
+    protected final void parse (Parse<?> p) {
+	
+	MemoEntry m = recall(p);
+
+	// no such memo entry.
+	if (m == null) {
+
+	    // create a new LR and push it onto the rule invocation stack
+	    LR lr = new LR(Fail, this, null);
+	    p.lrStack.push(lr);
+
+	    // Memoize "lr".
+	    // this means that subsequent (recursive) calls to this rule
+	    // will see this memo entry.
+	    m = new MemoEntry(this, p.pos, lr);
+	    addMemo(m);
+
+	    // evaluate this rule (rule-specific stuff).
+	    // generates output into 'p'.
+	    parseBody(p);
+
+	    // Pop lr off the rule invocation stack
+	    assert (lr == p.lrStack.pop());
+
+	    // update the memo entry.
+	    if (lr.head != nil) {
+		// if we actually encountered a left recursive invocation,
+		// grow the answer using 'p.ans' as the seed parse.
+		lr.seed = p.ans;
+		m.pos = p.pos;
+		p.ans = answerLR(pos, m);
+	    } else {
+		// otherwise, just update the memo, return the value.
+		m.ans = p.ans;
+	        p.ans = p.ans;
+	    }
+
+	// Memo entry exists
+	} else {
+	    if (m.ans == LR) {
+		// the memo entry indicates this is a recursive call.
+		// i.e. - we've actually encountered a left recursion.
+
+		// setup the LR so that when we unwind the stack, we can
+		// grow the seed.
+		setupLR(p, m.ans);
+
+		// set our answer to our seed.
+		p.ans = m.ans.seed;
+	    } else {
+		// the memo entry is a normal memo entry: just use it.
+		p.ans = m.ans;
+	    }
+	}
+    }
+
+    /**
+     * This replaces our current 'parse' method.
+     **/
+    protected abstract void parseBody(Parse<?> p);
+
+    /**
+     * Fetch the memo entry for the given position.
+     **/
+    private MemoEntry recall(Parse<?> p) {
+	MemoEntry m = getMemo(p);
+	Head h = p.heads.get(p.pos);
+
+	// if not growing a seed parse, just return what is stored in
+	// the memo table
+	if (h == null)
+	    return m;
+
+	// do not evaluate any rule that is not involved in this left recursion
+	if (m == null && r != h.head && !h.involvedSet.contains(r))
+	    return new MemoEntry(fail, p.pos);
+
+	// allow involved rules to be evaluated, but only once,
+	// during a seed growing iteration
+	if (r in h.evalSet) {
+	    h.evalSet.remove(r);
+	    r.parseBody(p);
+	    m.ans = p.ans;
+	    m.pos = p.pos;
+	}
+
+	return m;
+    }
+
+    /**
+     * Called when we encounter an actual left recursive invocation.
+     **/
+    private void setupLR (Parse<?> p, LR lr) {
+	// create the head if it doesn't already exist.
+	if (lr.head == null)
+	    lr.head = new Head(this);
+
+	// search the LR stack (from top to bottom) and find all rules 
+	// before the LR head.
+	for (LR s : p.lrStack) {
+	    if (s.head == lr.head) break;
+	    s.head = lr.head;
+	    lr.head.involvedSet.add(s.rule);
+	    s = s.next;
+	}
+    }
+
+    /**
+     * Called when we want the true answer to a left recursive invocation.
+     **/
+    private void answerLR (Parse<?> p, MemoEntry m) {
+	LR lr = (LR)m.ans;
+	Head h = lr.head;
+	if (h.rule != this) {
+	    // if we're not the head rule, we don't try to grow anything.
+	    p.ans = lr.seed;
+	} else {
+	    // otherwise, start with the seed...
+	    m.ans = lr.seed;
+	    if (m.ans == fail)
+		// if the seed is fail, return that.
+		p.ans = fail;
+	    else
+		// otherwise, grow the seed.
+		growLR(p, m, h);
+	}
+    }
+
+    /**
+     * Grow the seed
+     **/
+    private void growLR (Parse<?> p, MemoEntry m, Head h) {
+	// store the current head into the heads map
+	p.heads.put(p.pos, h); // line A
+
+	// loop until we're done growing the seed
+	while (true) {
+	    // remember the evaluation set (evaluated in recall())
+	    h.evalSet = new HashSet(h.involvedSet); // line B
+
+	    // recurse
+	    evalBody(p);
+
+	    // if we failed (or didn't get as far as the seed), we're done.
+	    if (p.ans = FAIL or p.pos <= m.pos)
+		break;
+
+	    // that's our answer otherwise, and grow again (loop)
+	    m.ans = p.ans;
+	    m.pos = p.pos;
+	}
+
+	// no longer growing: clear the current head.
+	p.heads.put(p.pos, null); // ... line C
+
+	// that's our answer now.
+	p.pos = m.pos;
+	p.ans = m.ans;
+    }
+
+   
+
+}

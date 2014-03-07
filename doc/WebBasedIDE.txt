@@ -1,0 +1,92 @@
+Web based IDE
+
+Thoughts
+
+- keyboard driven app
+- written in a single programming language: EpiJava (for both client side and server side stuff)
+- possibility of applets for remote code running, or maybe compiling down to Javascript?
+- literate programming + images + wiki + program?  Kindof interesting
+- syntax highlighting needs a clean and extensible architecture.
+
+
+- running locally (securely) versus running on a shared server.
+
+- editor should be available as a Java abstraction that can be accessed and interacted with directly in a console
+
+>>> Editor.get().save()
+File saved.
+
+>>> _
+
+- the fact that it's web-based should be mostly invisible.
+
+- consider web services and paging model.  Edit a file, navigate to another file easily, click back, save your changes.  Split the screen, open a tab, look at two files at the same time.
+
+- maybe save the file right away (like when you lose focus).  It worked in Smalltalk, why not Java?
+
+- generic "buffers" like emacs has.
+
+- commands that are essentially (and maybe literally) closures.  Assign icons, descriptions, help, etc for commands if possible.  Run-time statement-level annotations, perhaps?
+
+- NEED autocomplete.  Fancy autocomplete based on static types?  Probably.  Including live JavaDocs, etc.
+
+- different views of a buffer.  Model-view controller stuff.  The Model should be an arbitrary Java object.  The view could live on top of it.  Decorator views could do additional stuff.
+
+- a buffer could contain the parse tree of an EpiJava source file.  Doesn't work.  Non-compiling files need to be savable.
+
+- alt-click or shift-click on any page element would generate a reference to that element in the console as text, and place focus there.  Then you could type stuff.
+
+- drag and drop: possible?  Could you drag and drop files into a web browser?  Could you drag and drop page elements on top of one another?  Think about this.  What is the Smalltalk model?  - drag and drop command icons into the console, and it inserts the text of what it does.  Shift-click the command.
+
+- right click menus - powerful, context sensitive, based on Actions.
+
+- console should render interactive HTML views of things:
+
+>> 1 + 2
+
+v 3
+> class: Integer
+> value: 3
+
+(like an inspector in Smalltalk)
+
+- the interactive HTML should stick around.  This way we can execute multiple FINDs, the results can be expandable and have clickable links.
+
+- we could have a close button on the command/result pair that would remove it from the view, essentially hiding/editing the history of our shell.
+
+- history: should be able to go CTRL-up, or just up, like in Emacs/bash/cmd.exe.  It may be worth scrolling the window to the real command, or to the end and inserting the command if not possible.  Might want different shortcuts for each variant.  (up versus ctrl-up maybe).
+
+- autocompletion (like Java autocompletion)
+
+-
+
+- in code editing, see Hopscotch, the Newspeak IDE.  Editors are web pages, links navigate to other views of your program.  Model-View-Presenter pattern, consider other improvements in Hopscotch architecture.  Render code in rich format: rendered editable HTML comments (include images!).  Self documenting editor - links to documentation inside IDE from UI.  AJAX: things expand, loaded on demand.
+
+- consider threading model carefully.
+
+- need rich pretty printer and parser architecture.  Consider:
+DSLs embedded in Java.  Java has a crap syntax for DSLs, so embedding minilanguages inside Java somehow using extensible parser would be tres goodness.
+Everything in one language - EpiJava/Java source should be used for the grammar, pretty printer specification, everything.  To this end, consider a combination of parser combinators (a la Parsec or JParsec, or what they're doing in Newspeak) and DSLs to make the syntax wonderful.
+Grammar should specify both the syntax, translation to the AST, and rendering the AST in pretty printer.  "Syn: A Single Language for Specifying Abstract Syntax Trees, Lexical Analysis, Parsing and Pretty-Printing"
+Consider Wadler's algebra for pretty printers - he's a pretty smart guy most of the time.  :-)  The XQuery involvement not held against him, of course.
+grammar should parse trees as well as streams of arbitrary objects.  See Parsec for the latter, consider Antlr concepts for the former.  Ideally, should specify bidirectional mapping of two data structures.  One special case is List<Character> <-> Token <-> AST, but would be nice for AST <-> AST, etc.
+Efficiency is critical.  Generalizing away from primitive chars shouldn't be a big deal: object creation is moot (pretty much all chars are 0 <= c <= 256 anyway, easily memoizable).  Consider packrat parser architecture for linear time parsing.  Optimize the hell out of it.  Pretty printing is actually critical also (interactive editor would like to have pretty print option).
+AST would like to be hand created  (code generators are the antichrist), so AST mapping should be a mapping, not a specification.  If it's too hard to specify AST tree, make that easier.
+
+- IDE configuration
+"everything is one language, and uses the same tools to edit."
+to that end, configuration files are just EpiJava/Java source files, and are edited in the normal IDE.  You want to specify pretty printer stuff?  Just edit the config file, refresh your window.  Simple configuration should be done with simple method calls, if you want to do odd things, just write fancier code there.
+config: URL scheme - loads from default by default, if you save changes, it puts it in your personal folder instead.  ($HOME/.epijava/config)
+
+
+- Internet enabled
+consider the presence of the internet.  Allow editing offline (think airplanes) but richer experience online.  Automagially download updated documentation from website, or link to live docs if available. 
+Consider forums/comments/community on everything.
+
+- documentation
+When you get an exception or a warning or a compiler error, have an identifier token associated with it.  This token is a documentation link.
+So: get a "unchecked" compiler warning, click on the help link, it brings you to a website with extensive notes on it (maybe a wiki), and a mini forum that people have written their own thoughts.
+Everything is one language, and uses the same tools to edit: consider making the documentation source just be an EpiJava program.  I'm not sure what that means, but it's worth considering.
+
+- consider offline use (really, the primary way of using it)
+we'd like a local web server.  Look carefully at Gears, and move to JNLP-launched Jetty (or some other lightweight Java web server) if that doesn't work.  Java code that launches a browser should be made to work reliably, and so people can click on a link on a web page, and have the JNLP stuff automatically download and launch a web page.  You can also connect to an existing web server, but in the beginning at least, we won't have a site that gives access.  Plus, you really want to use this thing offline anyway.

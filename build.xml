@@ -1,0 +1,84 @@
+<!--
+  build.xml - buildfile for javai project
+  Shawn Vincent 2007 http://www.svincent.com/
+  -->
+
+<project name="EpiJava" default="dist" basedir=".">
+    <description>
+      EpiJava project
+    </description>
+  <!-- set global properties for this build -->
+  <property name="src" location="src"/>
+  <property name="bin" location="bin"/>
+  <property name="dist"  location="dist"/>
+  <property name="lib"  location="lib"/>
+  <property name="version" value="0.1"/>
+
+  <target name="init" description="Initialization rule">
+    <!-- Create the time stamp -->
+    <tstamp/>
+    <!-- Create the bin directory structure used by compile -->
+    <mkdir dir="${bin}"/>
+  </target>
+
+  <target name="compile" depends="init"
+        description="compile the source " >
+    <!-- Compile the java code from ${src} into ${bin} -->
+    <javac includeantruntime="false" srcdir="${src}" destdir="${bin}" debug="true">
+      <classpath>
+	<fileset dir="lib">
+	  <include name="**/*.jar"/>
+	</fileset>
+      </classpath>
+    </javac>
+
+    <!-- Copy all resources from ${src} into ${bin} -->
+    <copy todir="${bin}">
+      <fileset dir="${src}">
+	<exclude name="**/*.java"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <target name="dist" depends="compile"
+        description="generate the distribution" >
+    <!-- Create the distribution directory -->
+    <mkdir dir="${dist}"/>
+
+    <!-- Put everything in ${bin} into the epijava-${version}.jar file -->
+    <jar jarfile="${dist}/epijava-${version}.jar" basedir="${bin}"/>
+
+    <!-- sign it -->
+    <signjar keystore="epijava.key" storepass="epijava" alias="epijava" lazy="true">
+      <fileset dir=".">
+	<include name="dist/*.jar"/>
+	<include name="lib/*.jar"/>
+      </fileset>
+    </signjar>
+  </target>
+
+  <target name="clean"
+        description="clean up" >
+    <!-- Delete the ${2bin} and ${dist} directory trees -->
+    <delete dir="${bin}"/>
+    <delete dir="${dist}"/>
+  </target>
+
+  <target name="grammar" description="build the main Java grammar">
+    <java classpath="lib/antlr-build/antlr-3.0.1.jar:lib/antlr-build/antlr-2.7.7.jar:lib/antlr-build/stringtemplate-3.1b1.jar" classname="org.antlr.Tool">
+      <arg line="src/com/epijava/lang/grammar/EpiJava.g"/>
+    </java>
+  </target>
+
+    <target name="tidy"
+            description="tidy up Bad files">
+      <delete>
+        <!-- Emacs backup files -->
+        <fileset defaultexcludes="no" dir="." includes="**/*~"/>
+        <!-- .classes that ended up in the src directory -->
+        <fileset defaultexcludes="no" dir="src" includes="**/*.class"/>
+      </delete>
+    </target>
+
+
+</project>

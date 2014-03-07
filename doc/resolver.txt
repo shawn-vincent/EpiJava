@@ -1,0 +1,154 @@
+*Reference and Type Resolving
+
+
+** Dependencies
+
+*** Dependency 1
+Resolving names in a Java method body (like foo.bar.baz) requires being able to see all imported types and their typed members.
+
+Thus, all imported types and their typed members must be compiled before any expression (method body, field inializer, etc)
+
+*** Dependency 2
+To resolve the type of a member, all of the members of the containing type must be in scope (because Java allows forward references of names in a class)
+
+*** Dependency 3
+To fetch all of the members of the containing type, all supertypes and superinterfaces must be resolved.
+
+
+** Proposed algorithm A
+
+*** Resolving a type:
+
+**** 0: Zeroth, build import table
+
+**** 1: First, resolve all supertypes and superinterfaces (error if cycle)
+Note: this is recursive: for each of these types, do all this stuff
+
+Also note: the recursion here is simple: we can't have references back from our supertypes.
+
+**** 2: Next, place all members into a symbol table (pass 1)
+After this point, other type resolution (step 3) can see our members, for circular references.
+
+**** 3: Next, resolve all types in all signatures of members (pass 2)
+Note: again, this is recursive.
+
+Also note: the recursively resolved types may refer back to member DECLARATIONS in THIS type, but SHOULD NOT CARE about the TYPES of our members.  (hopefully this is true)
+
+However, in order to prevent issues, step 5 should not be done except at the end.
+
+**** 4: Next, resolve nested types
+
+**** 5: Next, do resolution on all expression/statement contexts
+This step 5 is tricksy.  If we're called in step 3, and a method references back to the calling class, it won't have types resolved for all members yet.
+
+
+Big Fun.
+
+** Discussion
+
+I hate this.  A lot.  With the passion like the fire of a thousand suns.
+
+It's too special purpose, too hard coded.  If I want to target a different language, or add semantics, it ties me down.
+
+So let's try another tactic.
+
+** Proposed Algorithm B - everything lazy and on-demand.
+
+*** Lazy types
+Types are fetched by fully qualified name, and are instantiated on demand.  Source types are loaded through some sort of SourceLoader interface (parallel to ClassLoader), and reflective types are loaded through a configurable ClassLoader.
+
+*** Type.resolvedMembers
+Llet every type have a lazy property 'resolvedMembers'.
+
+The definition of 'resolvedMembers' is dependent on the 'resolvedMembers' of all of its supertypes and superinterfaces.
+
+*** Member.resolvedType
+Let every member have a lazy property 'resolvedType'.
+
+The definition of 'resolvedType' is dependent on the 'resolvedMembers' of other types, and other type definitions.
+
+*** Member.resolvedBody
+Let every member have a lazy property 'resolvedBody'.
+
+The definition of 'resolvedBody' is dependent on the 'resolvedMembers' of other types, and the 'resolvedType' of some of these members.
+
+*** Circularity
+
+Laziness implies that if somebody needs one of these things while it's being resolved, you get an infinite loop (stack overflow).
+
+Example:
+
+  class A extends B {}
+
+  class B extends A {} // circular!
+
+So, A.resolvedMembers depends on B.resolvedMembers depends on A.resolvedMembers...  you can see where I'm going.
+
+So whatever 'lazy property' means above, it needs some way of determining that there is going to be a cycle, and killing it.
+
+Luckily, any cycle is also illegal by Java semantics.
+
+It may be reasonable to execute property fetches on the same thread - if somebody needs an answer, they have to wait until it's done anyway.  In this case, ThreadLocals would work here.  Keep a Stack, maybe a Set for efficiency.  If you enter a protected block and you've seen it already, keep enough information around that we can generate a beautiful error message (at least Locii, reference names, type names, etc).
+
+public class CycleStopper<T> {  // XXX bad name
+
+  public ThreadLocal<Set<T>> alreadySeen = new ThreadLocal...;
+
+  public void enterScope(T v) { 
+    if (alreadySeen.get().contains(v))
+      throw new IllegalCycleError(alreadySeen.get());
+    alreadySeen.get().add(v);
+  }
+
+  public void leaveScope(T v) {
+    if (!alreadySeen.get().contains(v))
+      throw new AssertionError();
+    alreadySeen.get().remove(v);
+  }
+
+}
+
+And then using this thing:
+
+    CycleStopper<Declaration> cycleStopper = ...;
+
+    cycleStopper.enterScope(declaration);
+    try {
+      // resolve property.
+    } finally {
+      cycleStopper.leaveScope(declaration);
+    }
+
+Or something like that.
+
+*** Thread Safety
+
+Laziness also implies that if more than one thread is trying to fetch a lazy property, everybody should get the same one.  This implies synchronization.
+
+It is possible to save the synchronization by doing something like this:
+
+public class LazyProperty<T> {
+  // volatile required: this is broken under JDK1.4 and earlier!!
+  private volatile T memoizedValue = null;
+
+  public T get() {
+    if (memoizedValue == null)
+      synchronized(this) {
+        if (memoizedValue == null)
+          memoizedValue = loadValue();
+      }
+  }
+
+  public abstract T loadValue();
+  
+}
+
+See for details:
+  http://jeremymanson.blogspot.com/2008/05/double-checked-locking.html
+  http://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html
+
+** Discussion
+
+If this can be made robust (which I think it can), we can write things in a really straightforward way: just fetch what we need when we need it, and count on everything else to "just work out".
+
+I think this is the way to go.

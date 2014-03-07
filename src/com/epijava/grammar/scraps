@@ -1,0 +1,38 @@
+    private static class WrapGrammar extends Grammar {
+        private final Grammar source;
+        private final Grammar target;
+
+        public WrapGrammar(final Grammar _source, final Grammar _target) {
+            source = _source;
+            target = _target;
+        }
+
+        @Override
+        protected ParseResult parseBody(final ParserState<?> p) {
+            ParseResult pr = source.parse(p);
+            if (pr.isFail())
+                return pr;
+
+            return new ParseResult(target.generator(pr.getScope()).generate());
+        }
+
+        @Override
+        public Grammar inverse(final InverseScope scope) {
+            // invert the source first, so references go the right way...
+            final Grammar sourceInverse = source.inverse(scope);
+            final Grammar targetInverse = target.inverse(scope);
+            return new WrapGrammar(targetInverse, sourceInverse);
+        }
+        
+        @Override
+        public String toString() { return source + " -> " + target; }
+
+        @Override
+        protected Object build(final BuilderState b) {
+            throw new UnsupportedOperationException(
+                    "A WRAP expression cannot be used in the "
+                            + "RHS of another WRAP expression");
+        }
+
+    }
+    

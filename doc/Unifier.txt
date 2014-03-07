@@ -1,0 +1,130 @@
+*Unifier
+
+Write a unification algorithm in Java over Java data structures.
+
+This does not unify a Java data structure with another -- rather a Java data structure with a pattern.
+
+
+
+**Pattern Construction
+
+void test() {
+    // test
+    UnifyObject pattern =
+	new UnifyObject(Person.class)
+	.field("name", new UnifyVar("X"))
+	.call("getFormattedName", new UnifyConstant("Unrah, George"))
+	.field("friendNames", new UnifyList().get(0, new UnifyVar("X"))
+	       .get(1, new UnifyVar("Y"))
+	       .first(new UnifyVar("First")));
+    
+    UnifyBindings bindings =
+	pattern.unify(new Person().setName("george"));
+    
+    assertTrue(bindings.get("X", "george"));
+}
+
+/**
+ *
+ **/
+public abstract class UnifyTerm {
+    final List<UnifyTerm> subTerms;
+
+    public UnifyTerm subTerm(UnifyTerm term) {
+	terms.add(predicate);
+	return this;
+    }
+
+    public UnifyBindings unify(Object o) {
+	UnifyBindings r = new UnifyBindings();
+	if (!unify(o, r))
+	    return null;
+	return r;
+    }
+
+    public boolean unify(Object o, UnifyBindings bindings) {
+        for (UnifyTerm term : subTerms) {
+	    if (!term.unify(o, bindings))
+		return false;
+	}
+	return true;
+    }
+}
+
+public class UnifyObject extends UnifyTerm {
+
+    public UnifyObject(Class _clazz) { subTerm(new UnifyInstanceof(_clazz)); }
+
+    public UnifyObject call(String name, Object[] args, UnifyTerm term) {
+	return subTerm(new UnifyCall(clazz, name, args, term));
+    }
+
+    public UnifyObject call(String name, UnifyTerm term) {
+	return call(name, new Object[0], term);
+    }
+
+    public UnifyObject field(String name, UnifyTerm term) {
+	return call("get"+StringUtil.capitalize(name), term);
+    }
+}
+
+public static class UnifyCall extends UnifyTerm {
+
+    final Class<?> clazz;
+    final String name;
+    
+    /**
+     * Set in constructor: throws exception on construction if
+     * method does not exist.
+     **/
+    final Method method;
+    
+    final Object[] args;
+    
+    final UnifyTerm term;
+    
+    public boolean unify(Object o, UnifyBindings bindings) {
+	return term.unify(ReflectUtil.invoke(o, method, args), bindings);
+    }
+}   
+
+public class UnifyList extends UnifyObject {
+
+    public UnifyList() { this(List<?>.class); }
+    public <T extends List<?>> UnifyList(Class<T> type) { super(type); }
+
+    public UnifyList get(int i, UnifyTerm t)
+    { return call("get", new Object[]{i}, t); }
+
+    public UnifyList first(UnifyTerm t)
+    { return call("first", t); }
+
+    public UnifyList size(UnifyTerm t)
+    { return call("size", t); }
+
+}
+
+public class UnifyVar extends UnifyTerm {
+    final String name;
+
+    public boolean unify(Object o, UnifyBindings bindings) {
+	Object existingBinding = bindings.get(name);
+	if (existingBinding != null)
+	    return CompareUtil.equals(o, existingBinding);
+
+	bindings.put(name, o);
+
+	return true;
+    }
+}
+
+public class UnifyConstant extends UnifyTerm {
+    final Object value;
+
+    public boolean unify(Object o, UnifyBindings bindings) {
+	return CompareUtil.equals(o, value);
+    }
+}
+
+
+
